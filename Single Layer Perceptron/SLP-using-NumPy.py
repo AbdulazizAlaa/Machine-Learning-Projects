@@ -1,3 +1,4 @@
+import utils as du
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -51,15 +52,15 @@ def GradientDescentTraining(X, T, epochs=50):
         W[0, j] = np.random.random()
         j+=1
 
-    i=0
-    while (i<epochs):
+    cost = []
+    for i in range(epochs):
         [c, G, d] = Cost(X, T, W)
         W[0, 0] = W[0, 0] - lRate * np.sum(d)
         W[0, 1:] = W[0, 1:] - lRate * G
-        print c
-        i+=1
+        cost.append(c)
+        print "epoch "+str(i)+": "+str(c)
 
-    return W
+    return [W, cost]
 
 def Cost(X, T, W):
     m = np.shape(X)[0]
@@ -75,11 +76,19 @@ def Cost(X, T, W):
     return [c, G, d]
 
 
+epochs = 300
+lRate = 0.01
 
-testX = np.load("testinput.npy")
-testy = np.load("testoutput.npy")
-trainX = np.load("input.npy")
-trainy = np.load("output.npy")
+filename = "iris"
+
+# data = du.read_data("../data/"+filename+".data", 1, 100)
+# du.save_data("../data/"+filename, data)
+data = du.load_data("../data/"+filename+".pickle")
+
+trainX = data[0][:, 0:2]
+trainy = data[1]
+
+trainy = np.where(trainy == "Iris-setosa", 1, -1)
 
 # trainX = np.matrix([ [3,1,1],
 #                      [4,0,1],
@@ -91,15 +100,14 @@ trainy = np.load("output.npy")
 #                      [1,1,1] ])
 # trainy = np.matrix([[]])
 
+W, cost = GradientDescentTraining(trainX, trainy, epochs)
 
-trainy = np.reshape(trainy, (trainy.shape[0], 1))
-testy = np.reshape(testy, (testy.shape[0], 1))
-
-W = GradientDescentTraining(trainX, trainy)
-
-Predicting(testX, testy, W)
+Predicting(trainX, trainy, W)
 
 print "weights: " , W
+
+plt.figure(1)
+plt.subplot(211)
 
 plt.scatter(trainX[:, 0], trainX[:, 1], marker='o', c=trainy)
 max = np.max( trainX[:, 0] )
@@ -107,4 +115,8 @@ min = np.min( trainX[:, 0] )
 x1 = np.arange(min, max, .1)
 x2 = - W[0, 0]/W[0, 2] - (W[0, 1]/W[0, 2]) * x1
 plt.plot(x1, x2, 'k-')
+
+plt.subplot(212)
+plt.plot(range(0, epochs), cost, 'k-')
+
 plt.show()

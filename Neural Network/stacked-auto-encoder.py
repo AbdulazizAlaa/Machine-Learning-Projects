@@ -9,8 +9,9 @@ from six.moves import cPickle
 numHiddenNeurons1 = 300
 numHiddenNeurons2 = 100
 num_classes = 10
-eta = 1
-pre_training_epochs = 100
+pre_eta = .005
+eta = .5
+pre_training_epochs = 200
 epochs = 500
 cross_val = .3
 
@@ -54,7 +55,9 @@ Wji = shared(np.random.rand(numHiddenNeurons1, numFeatures)*0.01)
 # weights of second hidden layer
 Wkj = shared(np.random.rand(numHiddenNeurons2, numHiddenNeurons1)*0.01)
 # weights of output layer in pre training when 1 hidden layer present
-Wo = shared(np.random.rand(numOutputNeurons, numHiddenNeurons1)*0.01)
+Wo1 = shared(np.random.rand(numFeatures, numHiddenNeurons1)*0.01)
+# weights of output layer in pre training when 2 hidden layer present
+Wo2 = shared(np.random.rand(numFeatures, numHiddenNeurons2)*0.01)
 # weights of actual output layer
 Wlk = shared(np.random.rand(numOutputNeurons, numHiddenNeurons2)*0.01)
 
@@ -66,47 +69,55 @@ t = T.dmatrix('t')
 # output of first hidden layer
 Aji = T.nnet.sigmoid(T.dot(Wji, X.T))
 # output of second hidden layer (prediction)
-Akj = T.nnet.softmax(T.dot(Wo, Aji))
+# Akj = T.nnet.softmax(T.dot(Wo1, Aji))
+Akj = T.dot(Wo1, Aji)
 
 # error function of first pre training
-E = T.mean(T.nnet.categorical_crossentropy(Akj.T, t))
+# E = T.mean(T.nnet.categorical_crossentropy(Akj.T, t))
+E = T.sum(T.sub(Akj.T, t)**2)/(2*trainX.shape[0])
 
 # gradient of error with respect to weights of first hidden layer
 gradji = T.grad(E, Wji)
 # gradient of error with respect to weights of output layer in pre training when 1 hidden layer present
-grado = T.grad(E, Wo)
+grado1 = T.grad(E, Wo1)
 
-updates = [(Wji, Wji-eta*gradji),
-           (Wo, Wo-eta*grado)]
+updates = [(Wji, Wji-pre_eta*gradji),
+           (Wo1, Wo1-pre_eta*grado1)]
 
 # pre training function
 pre_training_first_stack = function(inputs=[X, t], outputs=[E], updates=updates)
 
 # output of first hidden layer
-Aji = T.nnet.sigmoid(T.dot(Wji, X.T))
+# Aji = T.nnet.sigmoid(T.dot(Wji, X.T))
+Aji = T.tanh(T.dot(Wji, X.T))
 # output of second hidden layer
-Akj = T.nnet.sigmoid(T.dot(Wkj, Aji))
+# Akj = T.nnet.sigmoid(T.dot(Wkj, Aji))
+Akj = T.tanh(T.dot(Wkj, Aji))
 # output (prediction)
-Alk = T.nnet.softmax(T.dot(Wlk, Akj))
+# Alk = T.nnet.softmax(T.dot(Wo2, Akj))
+Alk = T.dot(Wo2, Akj)
 
 # error function of second pre training
-E = T.mean(T.nnet.categorical_crossentropy(Alk.T, t))
+# E = T.mean(T.nnet.categorical_crossentropy(Alk.T, t))
+E = T.sum(T.sub(Alk.T, t)**2)/(2*trainX.shape[0])
 
 # gradient of error with respect to weights of second hidden layer
 gradkj = T.grad(E, Wkj)
 # gradient of error with respect to weights of actual output layer
-gradlk = T.grad(E, Wlk)
+grado2 = T.grad(E, Wo2)
 
-updates = [(Wkj, Wkj-eta*gradkj),
-           (Wlk, Wlk-eta*gradlk)]
+updates = [(Wkj, Wkj-pre_eta*gradkj),
+           (Wo2, Wo2-pre_eta*grado2)]
 
 # pre training function
 pre_training_sec_stack = function(inputs=[X, t], outputs=[E], updates=updates)
 
 # output of first hidden layer
-Aji = T.nnet.sigmoid(T.dot(Wji, X.T))
+# Aji = T.nnet.sigmoid(T.dot(Wji, X.T))
+Aji = T.tanh(T.dot(Wji, X.T))
 # output of second hidden layer
-Akj = T.nnet.sigmoid(T.dot(Wkj, Aji))
+# Akj = T.nnet.sigmoid(T.dot(Wkj, Aji))
+Akj = T.tanh(T.dot(Wkj, Aji))
 # output (prediction)
 Alk = T.nnet.softmax(T.dot(Wlk, Akj))
 
@@ -136,7 +147,8 @@ print "first Stack back Prop : "
 
 for i in range(pre_training_epochs):
     print "Epoch: " + str(i)
-    cost = pre_training_first_stack(trainX, trainy)[0]
+    # cost = pre_training_first_stack(trainX, trainy)[0]
+    cost = pre_training_first_stack(trainX, trainX)[0]
     print "Cost:" + str(cost)
     costs.append(cost)
 
@@ -144,7 +156,8 @@ print "Second Stack back Prop : "
 
 for i in range(pre_training_epochs):
     print "Epoch: " + str(i)
-    cost = pre_training_sec_stack(trainX, trainy)[0]
+    # cost = pre_training_sec_stack(trainX, trainy)[0]
+    cost = pre_training_sec_stack(trainX, trainX)[0]
     print "Cost:" + str(cost)
     costs.append(cost)
 
